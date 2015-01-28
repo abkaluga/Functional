@@ -1,6 +1,7 @@
-#directory "/lib64/ocaml/xml-light/"
+(*#directory "/lib64/ocaml/xml-light/" 
 #load "xml-light.cma"
-#load "str.cma"
+#load "str.cma" *)
+module File = struct
 let file = "test.xml"
 let xml = Xml.parse_file file
 let contacts = Hashtbl.create (int_of_string (Xml.attrib xml "count"))
@@ -29,5 +30,8 @@ let make_sms   =
                         (((Xml.attrib  e "read"))!="0"))::(!sms)     
                     )
                     xml
+    
+end
+
 
 
