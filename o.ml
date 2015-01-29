@@ -4,7 +4,11 @@
 #load "str.cma"
 #directory "/lib64/ocaml/lablgtk2/"
 #load "lablgtk.cma" 
-
+let contains s1 s2 =
+    let re = Str.regexp_string s2
+    in
+        try ignore (Str.search_forward re s1 0); true
+        with Not_found -> false
 
 module Sms = struct
 	type t = (string * string) list
@@ -81,74 +85,99 @@ end
 
 
 module Gui = struct
-  let opened = ref "test.xml"
-  let test = (File.make_smss (File.parse_xml  !opened))
+  let opened = ref ""
+  let sms = ref SS.empty
+  (*let test = (File.make_smss (File.parse_xml  !opened)) *)
+
+
+
 
 
 let init = GMain.Main.init ()
 
+let toBox sms box li=  List.iter 
+					(fun (width,height,str) -> 	GMisc.label ~text: (List.assoc str sms) ~width:width  ~height:height ~line_wrap:true ~packing: box#add () ;
+  							()) li
 
-(* Get the selected filename and print it to the console *)
-let file_ok_sel filew () =
-  print_endline filew#filename;
-  flush stdout
-
-let toBox sms box =
-	let nameLabel =GMisc.label ~text: (List.assoc "name" sms) ~width:100 ~line_wrap:true ~justify:`LEFT
-    		~packing:box#add () in 
-    let rdateLabel =GMisc.label ~text: (List.assoc "rdate" sms) ~width:150
-    		~packing:box#add () in 
-    let rLabel =GMisc.label ~text: (List.assoc "r" sms) ~width:10 ~justify:`FILL
-    		~packing:box#add () in 
-    let wayLabel =GMisc.label ~text: (List.assoc "type" sms) ~width:10 ~justify:`FILL
-    		~packing:box#add () in 
-
-    let bodyLabel =GMisc.label ~text: (List.assoc "body" sms) ~width:800 ~line_wrap:true ~justify:`FILL
-    		~packing:box#add () in ()
-
-let file_selection () =
-  (* Create a new file selection widget; set default filename *)
-  let filew = GWindow.file_selection ~title:"File selection" ~border_width:10
-    ~filename:"penguin.png" () in
-  filew#ok_button#connect#clicked ~callback:(file_ok_sel filew);
-  filew#cancel_button#connect#clicked ~callback:filew#destroy;
-  filew#show ();
-  GMain.Main.main ()
-  
-
-  let window = GWindow.window ~title:"Wymyśl nazwę" ~width:1070 ~height:300 ~border_width:10 ()
+  let window = GWindow.window ~title:"Wymyśl nazwę" ~width:1200 ~height:300 ~border_width:10 ()
 
   let mainbox = GPack.vbox ~packing:window#add ()
+
   let infobox = GPack.hbox ~packing:mainbox#add () 
-  let frame = GBin.frame ~label:"SMS details" ~label_xalign:1.0 ~width:300  ~packing:infobox#add ()
-  let smsBox = GPack.hbox ~packing: frame#add()
+
+  let smsFrame = GBin.frame ~label:"SMS details" ~border_width:10 ~label_xalign:1.0 ~width:600  ~packing:infobox#add ()
+  
+  let smsBox = GPack.hbox ~packing: smsFrame#add()
+
   let smsLabels = 
-  		let helpBox = GPack.vbox ~packing:smsBox#add () in
-  		List.iter (fun str -> GMisc.label ~text: str ~width:100 ~packing: helpBox#add () ;()) ["Name"; "Date";"Seen";"Recived/Sended(1/2)";"Body"]
+  		let labelsBox = GPack.vbox ~packing:smsBox#add () in
+  		List.iter (fun (str,height) -> 	GMisc.label ~text: str ~width:100 ~height:height ~justify:`LEFT ~packing: labelsBox#add () ;
+  			()) [("Name",10); ("Date",10);("Seen",10);("R/S(1/2)",10);("Body",0)]
 
   let selected_sms = GPack.vbox ~width:500 ~packing:  smsBox#add ()
   
-  let scrolled_window = GBin.scrolled_window ~border_width:10
+  let scrolled_window = GBin.scrolled_window 
    	 	~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:mainbox#add ()
+  
   let sms_list = GPack.vbox ~packing: scrolled_window#add_with_viewport() 
 
   let create_line sms = 
   			let event_box = GBin.event_box ~packing:sms_list#add() in 
-  				let line = GPack.hbox ~border_width:5 ~width:1100 ~packing:event_box#add () in
-  			toBox sms line;
+  				let line = GPack.hbox  ~width:600 ~packing:event_box#add () in
+  			toBox sms line  [(30,0,"name");(110,0,"rdate");(30,0,"r");(30,0,"type");(400,0,"body")];
     		event_box#event#add [`BUTTON_PRESS];
   			event_box#event#connect#button_press ~callback: 
-  						(fun env -> List.iter 
-  							(fun e -> selected_sms#remove e) 
-  								selected_sms#all_children; 
-  							List.iter (fun str -> GMisc.label ~text: (List.assoc str sms) ~width:600 ~line_wrap:true ~packing: selected_sms#add () ;()) 
-  								["name"; "rdate";"r";"type";"body"];
+  						(fun env -> 
+  							List.iter (fun e -> selected_sms#remove e) selected_sms#all_children; 
+  							toBox sms selected_sms [(500,15,"name");(500,15,"rdate");(500,15,"r");(500,15,"type");(500,0,"body")];
   					true );
   			event_box#misc#realize ()
 
-  let main () =
-  	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
- 	SS.iter create_line test;
+
+
+let menuFrame= GBin.frame ~label:"Options" ~border_width:10 ~label_xalign:1.0 ~width:600 ~packing:infobox#add ()
+let vbox = GPack.vbox ~packing:menuFrame#add ()
+let openButton = GButton.button ~label:"Open file" ~packing:vbox#add ()
+let filltreButton = GButton.button ~label: "Filltre" ~packing:vbox#add ()
+				  	
+let typeFrame = GBin.frame ~label:"Filltre options" ~border_width:10 ~label_xalign:1.0 ~packing:vbox#add ()
+let optionsBox = GPack.vbox ~packing:typeFrame# add ()  
+let recivedButton = GButton.check_button ~label:"Recived" ~packing:optionsBox#add () 
+let sendedButton = GButton.check_button ~label:"Sended" ~packing:optionsBox#add ()
+let seLab = 	GMisc.label ~text:"Search in body for" ~line_wrap:true ~packing: optionsBox#add () 
+let bodyContent = GEdit.entry ~has_frame:true ~text:"Body contains" ~packing:optionsBox#add ()
+let contLab = GMisc.label ~text:"Choose contact" ~line_wrap:true ~packing: optionsBox#add ()
+let contactCombo = GEdit.combo  ~allow_empty:true ~enable_arrow_keys:true ~value_in_list:true ~packing:optionsBox#add ()
+
+
+let file_ok_sel filew () =
+	opened:= filew#filename ;
+	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
+	let parsed = (File.parse_xml !opened) in
+	sms:=(File.make_smss parsed);
+ 	SS.iter create_line !sms;
+ 	contactCombo#set_popdown_strings ((fun (a,b) -> a) (List.split (File.make_friends parsed)))
+
+let file_selection () =
+  (* Create a new file selection widget; set default filename *)
+  let filew = GWindow.file_selection ~title:"File selection" ~border_width:10 () in
+  filew#ok_button#connect#clicked ~callback:(filew#destroy;file_ok_sel filew);
+  filew#cancel_button#connect#clicked ~callback:filew#destroy;
+  filew#show ()
+let filltre () = 
+	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
+	SS.iter create_line (
+	SS.filter (fun e ->
+		((recivedButton#active&& ((List.assoc  "type" e)="1")) ||
+		(sendedButton#active && ((List.assoc  "type" e)="2"))) &&
+		(contains (List.assoc  "name" e) contactCombo#entry#text) &&
+		(contains (List.assoc  "body" e) bodyContent#text)
+		) !sms);
+	()
+  (*GMain.Main.main ()*)
+let startGui () =
+	filltreButton#connect#clicked ~callback:filltre;
+	openButton#connect#clicked ~callback:file_selection;
     window#connect#destroy ~callback:GMain.Main.quit;
     window#show ();
     GMain.Main.main ()
