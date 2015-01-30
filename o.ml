@@ -31,6 +31,11 @@ module Sms = struct
 		match (cmp_date a b) with
 		| 0 -> cmp_addr a b
 		| c -> c
+
+	let important li a b = List.fold_left (fun aux (w,f) -> (aux+w*(f a b))) 0 li
+
+
+
 end
 
 module SS = Set.Make(Sms)
@@ -66,19 +71,6 @@ module File = struct
 				("date",(Xml.attrib  e "date"));
 				("address",(clear_number (Xml.attrib e "address")));
 				("r",(Xml.attrib  e "read"))]) aux ) SS.empty (parsedFile)
-	
-
-
-	let default = [(-10,Sms.cmp_name); (5,Sms.cmp_date)]
-
-	let important li a b = 
-		let rec inner aux li' = 
-		match li' with
-		| [] -> aux
-		| (w,f)::t -> inner (aux+w*(f a b)) t 
-	in inner 0 li
-
-
 
 end
 
@@ -89,15 +81,15 @@ module Gui = struct
   let sms = ref SS.empty
   (*let test = (File.make_smss (File.parse_xml  !opened)) *)
 
-
+let toBox sms box li=  List.iter 
+					(fun (width,height,str) -> 	GMisc.label ~text: (List.assoc str sms) ~width:width  ~height:height ~line_wrap:true ~packing: box#add () ;
+  							()) li
 
 
 
 let init = GMain.Main.init ()
 
-let toBox sms box li=  List.iter 
-					(fun (width,height,str) -> 	GMisc.label ~text: (List.assoc str sms) ~width:width  ~height:height ~line_wrap:true ~packing: box#add () ;
-  							()) li
+
 
   let window = GWindow.window ~title:"Wymyśl nazwę" ~width:1200 ~height:300 ~border_width:10 ()
 
@@ -137,18 +129,36 @@ let toBox sms box li=  List.iter
 
 let menuFrame= GBin.frame ~label:"Options" ~border_width:10 ~label_xalign:1.0 ~width:600 ~packing:infobox#add ()
 let vbox = GPack.vbox ~packing:menuFrame#add ()
-let openButton = GButton.button ~label:"Open file" ~packing:vbox#add ()
-let filltreButton = GButton.button ~label: "Filltre" ~packing:vbox#add ()
+let buttonBox = GPack.button_box `HORIZONTAL ~border_width:5 ~packing:vbox#add ()
+let openButton = GButton.button ~label:"Open file" ~packing:buttonBox#add ()
+let filltreButton = GButton.button  ~label: "Filltre" ~packing:buttonBox#add ()
+let sortButton = GButton.button  ~label: "Sort" ~packing:buttonBox#add ()
 				  	
-let typeFrame = GBin.frame ~label:"Filltre options" ~border_width:10 ~label_xalign:1.0 ~packing:vbox#add ()
-let optionsBox = GPack.vbox ~packing:typeFrame# add ()  
-let recivedButton = GButton.check_button ~label:"Recived" ~packing:optionsBox#add () 
-let sendedButton = GButton.check_button ~label:"Sended" ~packing:optionsBox#add ()
-let seLab = 	GMisc.label ~text:"Search in body for" ~line_wrap:true ~packing: optionsBox#add () 
-let bodyContent = GEdit.entry ~has_frame:true ~text:"Body contains" ~packing:optionsBox#add ()
-let contLab = GMisc.label ~text:"Choose contact" ~line_wrap:true ~packing: optionsBox#add ()
-let contactCombo = GEdit.combo  ~allow_empty:true ~enable_arrow_keys:true ~value_in_list:true ~packing:optionsBox#add ()
+let filltreFrame = GBin.frame ~label:"Filltre options" ~border_width:10 ~label_xalign:1.0 ~packing:vbox#add ()
+let optionsBox = GPack.vbox ~packing:filltreFrame# add ()  
+let recivedButton = GButton.check_button ~label:"Recived" ~active:true ~packing:optionsBox#add () 
+let sendedButton = GButton.check_button ~label:"Sended" ~active:true  ~packing:optionsBox#add () 	
+let bodyContent = 	GMisc.label ~text:"Search in body for" ~line_wrap:true ~packing: optionsBox#add () ;
+					GEdit.entry ~has_frame:true  ~packing:optionsBox#add ()
+let contactCombo = 	GMisc.label ~text:"Choose contact" ~line_wrap:true ~packing: optionsBox#add () ;
+					GEdit.combo  ~allow_empty:true ~enable_arrow_keys:true ~value_in_list:true ~packing:optionsBox#add ()
 
+let sortFrame = GBin.frame ~label:"Sort priorty" ~border_width:10 ~label_xalign:1.0 ~packing:vbox#add ()
+let sortBox = GPack.hbox ~packing:sortFrame#add ()
+let adj = GData.adjustment ~value:1.0 ~lower:(-10.0) ~upper:10.0 ~step_incr:1.0 ~page_incr:5.0 ~page_size:0.0 ()
+let spinner1 =  let frame = GBin.frame ~label:"Name" ~border_width:10 ~label_xalign:1.0 ~width:30 ~packing: sortBox#add () 
+				and adj = GData.adjustment ~value:1.0 ~lower:(-10.0) ~upper:10.0 ~step_incr:1.0 ~page_incr:5.0 ~page_size:0.0 ()
+				in
+				GEdit.spin_button ~adjustment:adj ~rate:1.0 ~digits:2 ~width:30 ~packing:frame#add ()
+let spinner2 =  let frame = GBin.frame ~label:"Body" ~border_width:10 ~label_xalign:1.0 ~width:30 ~packing: sortBox#add () 
+				and adj = GData.adjustment ~value:1.0 ~lower:(-10.0) ~upper:10.0 ~step_incr:1.0 ~page_incr:5.0 ~page_size:0.0 ()
+				in
+				GEdit.spin_button ~adjustment:adj ~rate:1.0 ~digits:2 ~width:30 ~packing:frame#add ()
+
+let spinner3 =  let frame = GBin.frame ~label:"Date" ~border_width:10 ~label_xalign:1.0 ~width:30 ~packing: sortBox#add () 
+				and adj = GData.adjustment ~value:1.0 ~lower:(-10.0) ~upper:10.0 ~step_incr:1.0 ~page_incr:5.0 ~page_size:0.0 ()
+				in
+				GEdit.spin_button ~adjustment:adj ~rate:1.0 ~digits:2 ~width:30 ~packing:frame#add ()
 
 let file_ok_sel filew () =
 	opened:= filew#filename ;
@@ -164,19 +174,25 @@ let file_selection () =
   filew#ok_button#connect#clicked ~callback:(filew#destroy;file_ok_sel filew);
   filew#cancel_button#connect#clicked ~callback:filew#destroy;
   filew#show ()
-let filltre () = 
-	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
-	SS.iter create_line (
-	SS.filter (fun e ->
+
+let filtre smss = SS.filter (fun e -> 
 		((recivedButton#active&& ((List.assoc  "type" e)="1")) ||
-		(sendedButton#active && ((List.assoc  "type" e)="2"))) &&
+		(sendedButton#active && ((List.assoc  "type" e)="2")))  &&
 		(contains (List.assoc  "name" e) contactCombo#entry#text) &&
-		(contains (List.assoc  "body" e) bodyContent#text)
-		) !sms);
+		(contains (List.assoc  "body" e) bodyContent#text) 
+		) smss
+let updateList () = 
+	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
+	SS.iter create_line (filtre !sms);
 	()
-  (*GMain.Main.main ()*)
+let sortList () = 
+	let priorty = [(spinner1#value_as_int,Sms.cmp_name);(spinner2#value_as_int,Sms.cmp_body);(spinner3#value_as_int,Sms.cmp_date)] in
+	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
+	List.iter create_line (List.sort (Sms.important priorty) (SS.elements (filtre !sms)));
+	()
 let startGui () =
-	filltreButton#connect#clicked ~callback:filltre;
+	sortButton#connect#clicked ~callback:sortList;
+	filltreButton#connect#clicked ~callback:updateList;
 	openButton#connect#clicked ~callback:file_selection;
     window#connect#destroy ~callback:GMain.Main.quit;
     window#show ();
