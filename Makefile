@@ -1,14 +1,19 @@
 
 C = ocamlfind opt
 LIBS = lablgtk2,xml-light,str
-FILES = Main.cmx File.cmx Gui.cmx
 
 
-%.cmx: %.ml
-	$(C)  -c -package $(LIBS) $<
+sms.cmx: sms.ml
+	$(C)  -c -package $(LIBS) sms.ml
 
-all: $(FILES)
-	$(C) -o RUN.o -linkpkg -package $(LIBS)	$(FILES)
+File.cmx:  File.ml sms.cmx
+		$(C)  -c  sms.cmx -package $(LIBS) File.ml
+
+Gui.cmx: Gui.ml sms.cmx File.cmx	
+		$(C)  -c sms.cmx -package  File.cmx $(LIBS) Gui.ml
+
+run: sms.cmx File.cmx Gui.cmx
+	$(C) -o RUN  -linkpkg -package $(LIBS)	
 
 clean:
 	rm -fv *.cmi *.cmx *.o
