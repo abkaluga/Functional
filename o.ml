@@ -25,7 +25,10 @@ module Sms = struct
 		compare (Xml.attrib  a "read") (Xml.attrib  b "read")
 
 	let cmp_body a b =
-		compare (Xml.attrib  a "body") (Xml.attrib  b "body")
+		let parsedA = (Xml.attrib  a "body") and parsedB = (Xml.attrib  b "body") in 
+		 match compare (String.length parsedA) (String.length parsedB) with
+		 | 0 -> compare parsedA parsedB
+		 | c -> c
 	let cmp_addr a b = 
 		compare (Xml.attrib  a "address") (Xml.attrib  b "address")
 
@@ -50,7 +53,7 @@ module File = struct
 
 	let make_smss parsedFile = 
 			Xml.fold (fun aux e  -> 
-				SS.add e aux ) SS.empty (parsedFile)
+				if ((Xml.tag e) = "sms") then SS.add e aux else aux) SS.empty (parsedFile)
 
 end
 
@@ -97,7 +100,7 @@ let init = GMain.Main.init ()
   let create_line sms = 
   			let event_box = GBin.event_box ~packing:sms_list#add() in 
   				let frame = GBin.frame ~packing:event_box#add () in
-  				let line = GPack.hbox  ~width:600 ~packing:frame#add () in
+  				let line = GPack.hbox  ~width:600  ~show:true ~packing:frame#add () in
   			toBox sms line  [(30,0,"contact_name");(110,0,"readable_date");(30,0,"read");(30,0,"type");(400,0,"body")] false;
     		event_box#event#add [`BUTTON_PRESS];
   			event_box#event#connect#button_press ~callback: 
@@ -146,8 +149,9 @@ let spinner3 =  let frame = GBin.frame ~label:"readable_date" ~border_width:10 ~
 				GEdit.spin_button ~adjustment:adj ~rate:1.0 ~digits:2 ~width:30 ~packing:frame#add ()
 
 let new_file filew () =
-	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
 	let parsed = (File.parse_xml filew#filename) in
+		filew#destroy ();
+		List.iter (fun e -> sms_list#remove e ; e#destroy ()) sms_list#all_children;
 		sms:=(File.make_smss parsed);
  		SS.iter create_line !sms;
  		contactCombo#set_popdown_strings (StS.elements (File.make_friends parsed))
@@ -155,6 +159,7 @@ let new_file filew () =
 let concat_file filew () =
 	let parsed = (File.parse_xml filew#filename) in
 		let newsms = (File.make_smss parsed) in
+			filew#destroy ();
 			SS.iter create_line (SS.diff !sms newsms );
 			sms:=SS.union !sms newsms ;
 			contacts:=StS.union !contacts (File.make_friends parsed); 
@@ -178,16 +183,17 @@ let save_file filew () =
 	let output = open_out filew#filename in
 		let toSave = filtre !sms in
 		let xml = Xml.Element("smss",[("count",(string_of_int (SS.cardinal toSave)))],SS.elements toSave) in
-			fprintf output "%s" (Xml.to_string xml);
-			close_out output
+			fprintf output "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\n<?xml-stylesheet type=\"text/xsl\" href=\"sms.xsl\"?>\n%s" (Xml.to_string xml);
+			close_out output;
+			filew#destroy ()
 
 let updateList () = 
-	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
+	List.iter (fun e -> sms_list#remove e ; e#destroy ()) sms_list#all_children;
 	SS.iter create_line (filtre !sms);
 	()
 let sortList () = 
 	let priorty = [(spinner1#value_as_int,Sms.cmp_name);(spinner2#value_as_int,Sms.cmp_body);(spinner3#value_as_int,Sms.cmp_date)] in
-	List.iter (fun e -> sms_list#remove e) sms_list#all_children;
+	List.iter (fun e -> sms_list#remove e ; e#destroy ()) sms_list#all_children;
 	List.iter create_line (List.sort (Sms.important priorty) (SS.elements (filtre !sms)));
 	()
 
